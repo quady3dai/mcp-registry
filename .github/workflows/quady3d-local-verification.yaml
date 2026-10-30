@@ -1,0 +1,64 @@
+name: Quady3D container verification (fixtures only)
+on:
+  push:
+    branches: [codex/verify-quady3d-container]
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff
+        with:
+          go-version: '1.26.1'
+          cache: false
+      - name: Validate definition
+        run: go run ./cmd/validate --name quady3d
+      - name: Build immutable public package and discover tools
+        run: go run ./cmd/build --tools quady3d
+      - name: Check project delivery and restart recovery without network access
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/quady3d-project" "$RUNNER_TEMP/quady3d-state"
+          sudo chown -R 1000:1000 "$RUNNER_TEMP/quady3d-project" "$RUNNER_TEMP/quady3d-state"
+          sudo chmod 700 "$RUNNER_TEMP/quady3d-state"
+          for phase in create recover; do
+            docker run --rm --network none --cap-drop ALL \
+              --mount "type=bind,source=$RUNNER_TEMP/quady3d-project,target=/project" \
+              --mount "type=bind,source=$RUNNER_TEMP/quady3d-state,target=/home/node/.local/state/quady3d" \
+              --mount "type=bind,source=$PWD/tests/quady3d/container-fixture.mjs,target=/fixture.mjs,readonly" \
+              --entrypoint node mcp/quady3d /fixture.mjs "$phase"
+          done
+      - name: Install checksum-verified official Toolkit CLI
+        run: |
+          set -euo pipefail
+          curl -fsSL --retry 2 --max-time 120 \
+            https://github.com/docker/mcp-gateway/releases/download/v0.44.3/docker-mcp-linux-amd64.tar.gz \
+            -o "$RUNNER_TEMP/docker-mcp.tgz"
+          echo "e4df4c2dcc013011519da70a546589d8db0c1461a0050070239339675cfca98c  $RUNNER_TEMP/docker-mcp.tgz" | sha256sum --check
+          python3 - <<'PY'
+          import os, pathlib, tarfile
+          p=pathlib.Path.home()/'.docker/cli-plugins/docker-mcp'
+          p.parent.mkdir(parents=True,exist_ok=True)
+          with tarfile.open(os.environ['RUNNER_TEMP']+'/docker-mcp.tgz') as archive:
+              candidates=[m for m in archive.getmembers() if m.isfile() and pathlib.PurePosixPath(m.name).name=='docker-mcp']
+              assert len(candidates)==1
+              p.write_bytes(archive.extractfile(candidates[0]).read())
+          p.chmod(0o755)
+          PY
+          docker mcp version
+      - name: Import catalog into isolated runner Toolkit
+        run: |
+          set -euo pipefail
+          go run ./cmd/catalog quady3d
+          docker mcp catalog import "$PWD/catalogs/quady3d/catalog.yaml"
+          docker mcp gateway run --help
+      - name: Summarize verified scope
+        run: |
+          echo '## Quady3D fixture-only container acceptance' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Public package 0.1.2; no account credentials, paid model calls or production API requests.' >> "$GITHUB_STEP_SUMMARY"
+          echo '[Official setup](https://quady3d.com/integrations/mcp)' >> "$GITHUB_STEP_SUMMARY"
