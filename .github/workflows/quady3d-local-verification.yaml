@@ -57,6 +57,8 @@ jobs:
           go run ./cmd/catalog quady3d
           docker mcp catalog import "$PWD/catalogs/quady3d/catalog.yaml"
           docker mcp gateway run --help
+      - name: Verify Toolkit gateway discovers all Quady3D tools
+        run: node tests/quady3d/toolkit-fixture.mjs
       - name: Summarize verified scope
         run: |
           echo '## Quady3D fixture-only container acceptance' >> "$GITHUB_STEP_SUMMARY"
