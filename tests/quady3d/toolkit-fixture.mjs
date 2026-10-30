@@ -14,7 +14,7 @@ const secrets=path.join(temp,'quady3d-toolkit-fixture.env');
 await fs.writeFile(config,JSON.stringify({quady3d:{project_path:path.join(temp,'quady3d-project'),state_path:path.join(temp,'quady3d-state')}}));
 await fs.writeFile(secrets,'quady3d.api_key=fixture-placeholder-not-a-real-key\n',{mode:0o600});
 // Only this isolated test invocation accepts the unsigned, locally built image.
-const child=spawn('docker',['mcp','gateway','run','--servers=quady3d','--catalog='+catalog,'--config='+config,'--secrets='+secrets,'--verify-signatures=false','--watch=false','--static'],{stdio:['pipe','pipe','pipe']});
+const child=spawn('docker',['mcp','gateway','run','--servers=quady3d','--catalog='+catalog,'--config='+config,'--secrets='+secrets,'--verify-signatures=false','--watch=false','--tools=quady3d:*'],{stdio:['pipe','pipe','pipe']});
 let stderr='';child.stderr.on('data',b=>{stderr=(stderr+b.toString()).slice(-4000);});
 let id=0;const pending=new Map();
 createInterface({input:child.stdout}).on('line',line=>{let m;try{m=JSON.parse(line);}catch{return;}const p=pending.get(m.id);if(p){pending.delete(m.id);clearTimeout(p.timer);m.error?p.reject(new Error(JSON.stringify(m.error))):p.resolve(m.result);}});
