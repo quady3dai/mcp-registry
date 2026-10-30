@@ -57,6 +57,10 @@ jobs:
           go run ./cmd/catalog quady3d
           docker mcp catalog import "$PWD/catalogs/quady3d/catalog.yaml"
           docker mcp gateway run --help
+      - name: Install Toolkit socket transport dependency
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends socat
       - name: Verify Toolkit gateway discovers all Quady3D tools
         run: node tests/quady3d/toolkit-fixture.mjs
       - name: Summarize verified scope
