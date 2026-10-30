@@ -7,6 +7,7 @@ import {spawn} from 'node:child_process';
 import {createInterface} from 'node:readline';
 const temp=process.env.RUNNER_TEMP;
 const catalog=path.join(homedir(),'.docker/mcp/catalogs/quady3d-fixture.yaml');
+await fs.mkdir(path.dirname(catalog),{recursive:true});
 await fs.copyFile('catalogs/quady3d/catalog.yaml',catalog);
 const config=path.join(temp,'quady3d-toolkit-config.json');
 const secrets=path.join(temp,'quady3d-toolkit-fixture.env');
